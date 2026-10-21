@@ -1,0 +1,13 @@
+# Opisy wejść/wyjść (opcjonalne) - format "nazwa: opis"
+I1: lewy przycisk obsługi
+I2: prawy przycisk obsługi
+I3: czujnik osłony strefy roboczej
+I4: grzybek bezpieczeństwa
+Q1: siłownik prasy
+Q2: zielona lampka gotowości
+Q3: czerwona lampka blokady
+
+# Równania - format "wyjście = wyrażenie"
+Q1 = I1 ∧ I2 ∧ I3 ∧ ¬I4
+Q2 = I3 ∧ ¬I4 ∧ ¬(I1 ∧ I2)
+Q3 = ¬I3 ∨ I4
