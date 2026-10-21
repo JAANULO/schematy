@@ -1,48 +1,52 @@
 #!/usr/bin/env python3
 """Generator schematu blokowego i schematu logicznego z równań boolowskich.
 
-Z jednego pliku z równaniami powstają dwa rysunki:
+Z równań w equations.toml (ustawienia: config.toml) powstają dwa rysunki:
     schemat_blokowy.png   - wejścia -> bloki funkcyjne -> wyjścia (jak szkic z zajęń)
-    schemat_logiczny.png  - bramki AND/OR/NOT (wszystkie wyjścia na jednym rysunku)
+    schemat_logiczny.png  - bramki logiczne (wszystkie wyjścia na jednym rysunku)
 
 Użycie:
-    python bramki.py                              # domyślnie: rownania.txt -> ./out
-    python bramki.py -f in.txt -o outdir
-    python bramki.py "Q1 = I1 & I2 & ~I3" --fmt svg
+    python bramki.py                              # domyślnie: equations.toml -> ./out
+    python bramki.py -f inne.toml -o outdir
+    python bramki.py "Q4 = I1 XOR I2" --fmt svg   # dodatkowe równanie
     python bramki.py --osobno                     # dodatkowo Q1.png, Q2.png, ...
 
-Format pliku (kolejność dowolna, # = komentarz):
-    I1: lewy przycisk obsługi         <- opis wejścia/wyjścia (opcjonalny)
-    Q1 = I1 & I2 & ~I3                <- równanie
+Dodatkowe linie z CLI:
+    I1: lewy przycisk obsługi         <- opis wejścia/wyjścia
+    Q1 = I1 AND I2 AND NOT I3         <- równanie
 
-Operatory:  AND: & && ∧ AND   OR: | || ∨ OR   NOT: ~ ! ¬ NOT   plus nawiasy ().
-Priorytet: NOT > AND > OR.
+Operatory:  NOT AND NAND OR NOR XOR XNOR (również & && ∧, | || ∨, ~ ! ¬) plus nawiasy ().
+Priorytet: NOT > AND/NAND > OR/NOR/XOR/XNOR.
 """
 import argparse
 import os
 import re
 import sys
 import textwrap
+import tomllib
 from pathlib import Path
 
 import schemdraw
 from schemdraw import elements as elm
 from schemdraw import flow, logic
 
-# ----- stałe konfiguracyjne -----
-DEFAULT_INPUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rownania.txt")
-DEFAULT_OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
+# ----- konfiguracja (config.toml obok skryptu) -----
+SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
+with open(SCRIPT_DIR / "config.toml", "rb") as f:
+    CFG = tomllib.load(f)
+CLI, LOG, BLK = CFG["cli"], CFG["logiczny"], CFG["blokowy"]
 
 # ======================= PARSER =======================
+LEVEL = {"AND": 1, "NAND": 1, "OR": 0, "NOR": 0, "XOR": 0, "XNOR": 0}  # priorytet operatorów 2-arg.
+SYMBOLS = (("&&", "AND"), ("||", "OR"), ("∧", "AND"), ("∨", "OR"), ("¬", "NOT"), ("&", "AND"), ("|", "OR"), ("!", "NOT"), ("~", "NOT"))
 def tokenize(text):
-    text = (text.replace("∧", "&").replace("∨", "|").replace("¬", "~").replace("&&", "&").replace("||", "|").replace("!", "~"))
-    text = re.sub(r"\bAND\b", "&", text, flags=re.I)
-    text = re.sub(r"\bOR\b", "|", text, flags=re.I)
-    text = re.sub(r"\bNOT\b", "~", text, flags=re.I)
-    return re.findall(r"[A-Za-z_]\w*|[&|~()]", text)
+    for sym, word in SYMBOLS:
+        text = text.replace(sym, f" {word} ")
+    toks = re.findall(r"[A-Za-z_]\w*|[()]", text)
+    return [t.upper() if t.upper() in LEVEL or t.upper() == "NOT" else t for t in toks]
 
 def parse(expr):
-    """Zwraca drzewo: ('VAR', nazwa) albo (op, [dzieci]), op in AND/OR/NOT."""
+    """Zwraca drzewo: ('VAR', nazwa) albo (op, [dzieci]), op in NOT lub klucze LEVEL."""
     toks, pos = tokenize(expr), [0]
     def peek():
         return toks[pos[0]] if pos[0] < len(toks) else None
@@ -51,33 +55,32 @@ def parse(expr):
             raise ValueError("niepełne wyrażenie")
         pos[0] += 1
         return toks[pos[0] - 1]
-    def nary(op, items):
-        flat = []
-        for it in items:
-            flat.extend(it[1] if it[0] == op else [it])
-        return flat[0] if len(flat) == 1 else (op, flat)
+    def chain(level, sub):
+        # A op B op C -> jedna bramka n-wejściowa; zmiana operatora zaczyna nową bramkę
+        node, cur = sub(), None
+        while LEVEL.get(peek()) == level:
+            op, rhs = take(), sub()
+            if op == cur:
+                node[1].append(rhs)
+            else:
+                node, cur = (op, [node, rhs]), op
+        if cur in ("AND", "OR"):  # łączne: (A AND B) AND C -> AND3
+            node = (cur, [x for c in node[1] for x in (c[1] if c[0] == cur else [c])])
+        return node
     def or_():
-        items = [and_()]
-        while peek() == "|":
-            take()
-            items.append(and_())
-        return nary("OR", items)
+        return chain(0, and_)
     def and_():
-        items = [not_()]
-        while peek() == "&":
-            take()
-            items.append(not_())
-        return nary("AND", items)
+        return chain(1, not_)
     def not_():
         t = take()
-        if t == "~":
+        if t == "NOT":
             return ("NOT", [not_()])
         if t == "(":
             e = or_()
             if take() != ")":
                 raise ValueError("brak ')'")
             return e
-        if re.fullmatch(r"[A-Za-z_]\w*", t):
+        if re.fullmatch(r"[A-Za-z_]\w*", t) and t not in LEVEL:
             return ("VAR", t)
         raise ValueError(f"nieoczekiwany token: {t}")
     tree = or_()
@@ -102,7 +105,7 @@ def parse_lines(lines):
     return eqs, desc
 
 # ======================= SCHEMAT LOGICZNY =======================
-GAP, ROW, LEAD = 3.2, 1.3, 0.7
+GAP, ROW, LEAD = LOG["gap"], LOG["row"], LOG["lead"]
 def channel_x(p, pin, i, n, min_gap, base):
     k = i if p[1] >= pin[1] else n - 1 - i
     return max(p[0] + min_gap, pin[0] - base - 0.25 * k)
@@ -117,7 +120,8 @@ def draw_gates(d, node, state):
         return (0, y)
     pts = [draw_gates(d, c, state) for c in arg]
     x, y = height(node) * GAP, sum(p[1] for p in pts) / len(pts)
-    gate = {"AND": logic.And, "OR": logic.Or}.get(op, logic.Not)
+    gate = {"AND": logic.And, "NAND": logic.Nand, "OR": logic.Or, "NOR": logic.Nor,
+            "XOR": logic.Xor, "XNOR": logic.Xnor}.get(op, logic.Not)
     g = gate(inputs=len(arg)) if op != "NOT" else gate()
     d += g.at((x, y)).anchor("out")
     for i, p in enumerate(pts, 1):
@@ -130,7 +134,7 @@ def draw_gates(d, node, state):
     return (x, y)
 def logic_diagram(eqs):
     d = schemdraw.Drawing()
-    d.config(fontsize=12, unit=1)
+    d.config(fontsize=LOG["fontsize"], unit=1)
     state = {"row": 0}
     for name, tree in eqs:
         out = draw_gates(d, tree, state)
@@ -139,7 +143,7 @@ def logic_diagram(eqs):
     return d
 
 # ======================= SCHEMAT BLOKOWY =======================
-COLW, IO_W, GATE_W, GATE_H, VSEP, WRAP = 4.8, 3.6, 1.5, 0.8, 0.4, 19
+COLW, IO_W, GATE_W, GATE_H, VSEP, WRAP = (BLK[k] for k in ("colw", "io_w", "gate_w", "gate_h", "vsep", "wrap"))
 def io_text(name, desc):
     lines = [name] + (textwrap.wrap(desc[name], WRAP) if name in desc else [])
     return "\n".join(lines), 0.5 + 0.32 * len(lines)
@@ -151,11 +155,11 @@ def draw_blocks(d, node, state, desc):
         text, h = io_text(arg, desc)
         y = state["y"] - h / 2
         state["y"] -= h + VSEP
-        put_box(d, 0, y, IO_W, h, text, "#e8e8e8")
+        put_box(d, 0, y, IO_W, h, text, BLK["kolor_io"])
         return (IO_W / 2, y)
     pts = [draw_blocks(d, c, state, desc) for c in arg]
     x, y = height(node) * COLW, sum(p[1] for p in pts) / len(pts)
-    put_box(d, x, y, GATE_W, GATE_H, op, "white")
+    put_box(d, x, y, GATE_W, GATE_H, op, BLK["kolor_bramki"])
     left = x - GATE_W / 2
     for i, p in enumerate(pts):
         xm = channel_x(p, (left, y), i, len(pts), 0.25, 0.5)
@@ -165,13 +169,13 @@ def draw_blocks(d, node, state, desc):
     return (x + GATE_W / 2, y)
 def block_diagram(eqs, desc):
     d = schemdraw.Drawing()
-    d.config(fontsize=10)
+    d.config(fontsize=BLK["fontsize"])
     state = {"y": 0.0}
     for name, tree in eqs:
         p = draw_blocks(d, tree, state, desc)
         text, h = io_text(name, desc)
         x = (height(tree) + 1) * COLW
-        put_box(d, x, p[1], IO_W, h, text, "#e8e8e8")
+        put_box(d, x, p[1], IO_W, h, text, BLK["kolor_io"])
         d += elm.Arrow().at(p).to((x - IO_W / 2, p[1]))
         state["y"] -= 0.7
     return d
@@ -180,31 +184,30 @@ def block_diagram(eqs, desc):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("lines", nargs="*", help='równania / opisy, np. "Q1 = I1 & ~I2"')
-    ap.add_argument("-f", "--file", default=DEFAULT_INPUT,
-                    help="plik z równaniami i opisami (domyślnie 'rownania.txt')")
-    ap.add_argument("-o", "--outdir", default=DEFAULT_OUTDIR,
-                    help="katalog wyjściowy (domyślnie ./out)")
-    ap.add_argument("--fmt", default="png", choices=["png", "svg", "pdf"]) 
-    ap.add_argument("--dpi", type=int, default=200)
-    ap.add_argument("--osobno", action="store_true", help="dodatkowo osobny schemat logiczny dla każdego wyjścia")
+    ap.add_argument("-f", "--file", default=str(SCRIPT_DIR / CLI["plik"]),
+                    help=f"plik z równaniami i opisami (domyślnie '{CLI['plik']}')")
+    ap.add_argument("-o", "--outdir", default=str(SCRIPT_DIR / CLI["outdir"]),
+                    help=f"katalog wyjściowy (domyślnie {CLI['outdir']})")
+    ap.add_argument("--fmt", default=CLI["fmt"], choices=["png", "svg", "pdf"])
+    ap.add_argument("--dpi", type=int, default=CLI["dpi"])
+    ap.add_argument("--osobno", action=argparse.BooleanOptionalAction, default=CLI["osobno"],
+                    help="dodatkowo osobny schemat logiczny dla każdego wyjścia")
     a = ap.parse_args()
-    # ---- wczytywanie danych ----
-    lines = []
+    # ---- wczytywanie danych: plik z równaniami + dodatkowe linie z CLI ----
     input_path = Path(a.file)
-    if input_path.is_file():
-        lines += input_path.read_text(encoding="utf-8").splitlines()
-    else:
+    if not input_path.is_file():
         ap.error(f"Nie znaleziono pliku wejściowego: {a.file}")
-
-    # dodatkowe równania podane bezpośrednio w CLI
-    lines += list(a.lines)
-
     try:
-        eqs, desc = parse_lines(lines)
-    except ValueError as ex:
+        data = tomllib.loads(input_path.read_text(encoding="utf-8"))
+        eqs = [(name, parse(expr)) for name, expr in data.get("rownania", {}).items()]
+        desc = dict(data.get("opisy", {}))
+        cli_eqs, cli_desc = parse_lines(a.lines)
+    except ValueError as ex:  # tomllib.TOMLDecodeError też dziedziczy po ValueError
         sys.exit(f"BŁĄD: {ex}")
+    eqs += cli_eqs
+    desc.update(cli_desc)
     if not eqs:
-        ap.error("podaj równania lub plik (-f)")
+        ap.error("podaj równania w pliku (-f, sekcja [rownania]) lub w CLI")
     out = Path(a.outdir)
     out.mkdir(parents=True, exist_ok=True)
     jobs = [("schemat_blokowy", block_diagram(eqs, desc)), ("schemat_logiczny", logic_diagram(eqs))]

@@ -1,0 +1,25 @@
+# Konfiguracja bramki.py. Flagi z linii poleceń nadpisują wartości z [cli].
+
+[cli]
+plik = "equations.toml" # ścieżka względna = względem katalogu skryptu
+outdir = "out"
+fmt = "png"             # png | svg | pdf
+dpi = 200
+osobno = false          # dodatkowo osobny schemat logiczny dla każdego wyjścia
+
+[logiczny]
+gap = 3.2               # odstęp poziomy między poziomami bramek
+row = 1.3               # odstęp pionowy między wejściami
+lead = 0.7              # długość linii wejściowej
+fontsize = 12
+
+[blokowy]
+colw = 4.8              # szerokość kolumny
+io_w = 3.6              # szerokość bloku wejścia/wyjścia
+gate_w = 1.5            # szerokość bloku funkcyjnego
+gate_h = 0.8            # wysokość bloku funkcyjnego
+vsep = 0.4              # odstęp pionowy między blokami wejść
+wrap = 19               # zawijanie opisu po tylu znakach
+fontsize = 10
+kolor_io = "#e8e8e8"
+kolor_bramki = "white"
