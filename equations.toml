@@ -1,17 +1,7 @@
-# Opisy wejść/wyjść (opcjonalne)
-[opisy]
-I1 = "lewy przycisk obsługi"
-I2 = "prawy przycisk obsługi"
-I3 = "czujnik osłony strefy roboczej"
-I4 = "grzybek bezpieczeństwa"
-Q1 = "siłownik prasy"
-Q2 = "zielona lampka gotowości"
-Q3 = "czerwona lampka blokady"
+[descriptions]
+I1 = "1st input"
+I2 = "2nd input"
+Q1 = "1st output"
 
-# Równania: wyjście = "wyrażenie"
-# Operatory: NOT, AND, NAND, OR, NOR, XOR, XNOR oraz nawiasy ().
-# Priorytet: NOT > AND/NAND > OR/NOR/XOR/XNOR.
-[rownania]
-Q1 = "I1 AND I2 AND I3 AND NOT I4"
-Q2 = "I3 AND NOT I4 AND NOT (I1 AND I2)"
-Q3 = "NOT I3 OR I4"
+[equations]
+Q1 = "(I1 AND I2) OR (NOT I1 AND NOT I2)"
