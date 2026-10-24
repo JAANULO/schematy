@@ -1,24 +1,22 @@
-# src/main.py configuration.
-
 [general]
-file = "equations.toml" # relative path = relative to the project root
-fmt = "png"             # png | svg | pdf
+file = "equations.toml"
+fmt = "png"
 dpi = 200
-separate = false        # also a separate logic diagram for each output
+separate = false
 
 [logic]
-gap = 3.2               # horizontal spacing between gate levels
-row = 1.3               # vertical spacing between inputs
-lead = 0.7              # input wire length
+gap = 3.2
+row = 1.3
+lead = 0.7
 fontsize = 12
 
 [block]
-colw = 4.8              # column width
-io_w = 3.6              # input/output block width
-gate_w = 1.5            # function block width
-gate_h = 0.8            # function block height
-vsep = 0.4              # vertical spacing between input blocks
-wrap = 19               # wrap descriptions after this many characters
+colw = 4.8
+io_w = 3.6
+gate_w = 1.5
+gate_h = 0.8
+vsep = 0.4
+wrap = 19
 fontsize = 10
 io_color = "#e8e8e8"
 gate_color = "white"

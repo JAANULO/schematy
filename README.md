@@ -1,7 +1,7 @@
 # Block and Logic Diagrams
 
 Script for generating block diagrams and logic/control diagrams from Boolean equations,
-for the class *Fundamentals of Industrial Computer Science – Laboratory*.
+for the class _Fundamentals of Industrial Computer Science – Laboratory_.
 
 From one set of equations it draws:
 
@@ -15,13 +15,7 @@ From one set of equations it draws:
 - [`schemdraw`](https://schemdraw.readthedocs.io/) and `matplotlib`
 
 ```sh
-pip install schemdraw matplotlib
-```
-
-On NixOS:
-
-```sh
-nix-shell -p "python3.withPackages(ps: [ps.schemdraw ps.matplotlib])"
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -30,15 +24,12 @@ nix-shell -p "python3.withPackages(ps: [ps.schemdraw ps.matplotlib])"
 python src/main.py
 ```
 
-The script takes no arguments: equations come from `equations.toml`, everything else from `config.toml`.
-Diagrams are always written to `out/` in the project root (only the empty directory is kept in git).
-The script can be run from any directory; relative paths in `config.toml` are resolved
-against the project root.
+The script takes no arguments: equations come from `equations.toml`, everything else from `config.toml`. The script can be run from any directory; relative paths in `config.toml` are resolved against the project root.
 
 ## Equations file (`equations.toml`)
 
 ```toml
-# Input/output descriptions (optional) - shown in the block diagram
+# Input/output descriptions
 [descriptions]
 I1 = "left operator button"
 I2 = "right operator button"
@@ -104,6 +95,7 @@ All keys are required.
 
 ```
 config.toml          settings
+requirements.txt     Python dependencies
 equations.toml       input/output descriptions and equations
 out/                 generated diagrams (contents ignored by git)
 src/
