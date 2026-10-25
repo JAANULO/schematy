@@ -1,28 +1,6 @@
-# macOS
-.DS_Store
-
-# Gradle & Build
-.gradle/
-build/
-out/
-bin/
-
-# Kotlin & IntelliJ Platform
-.kotlin/
 .idea/
-.intellijPlatform/
 .vscode/
+__pycache__/
 
-# Generated sources
-src/main/gen/
-gen/
-
-# IDEs & Environment
-*.env
-*.log
-
-# Test Reports
-/reports/
-/scratch
-
-
+/out/*
+!/out/.gitkeep

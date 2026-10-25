@@ -1,0 +1,7 @@
+[descriptions]
+I1 = "1st input"
+I2 = "2nd input"
+Q1 = "1st output"
+
+[equations]
+Q1 = "(I1 AND I2) OR (NOT I1 AND NOT I2)"
