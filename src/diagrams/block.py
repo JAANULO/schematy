@@ -9,26 +9,39 @@ from utils.layout import channel_x, height
 
 COLW, IO_W, GATE_W, GATE_H, VSEP, WRAP = (BLOCK[k] for k in ("colw", "io_w", "gate_w", "gate_h", "vsep", "wrap"))
 
+
 def io_text(name, desc):
     lines = [name] + (textwrap.wrap(desc[name], WRAP) if name in desc else [])
     return "\n".join(lines), 0.5 + 0.32 * len(lines)
 
+
 def put_box(d, x, y, w, h, text, fill):
     d += (flow.Box(w=w, h=h).at((x, y)).anchor("center").fill(fill).label(text, "center"))
 
+
 def draw_blocks(d, node, state, desc):
-    op, arg = node
+    op = node[0]
 
     if op == "VAR":
-        text, h = io_text(arg, desc)
+        text, h = io_text(node[1], desc)
         y = state["y"] - h / 2
         state["y"] -= h + VSEP
         put_box(d, 0, y, IO_W, h, text, BLOCK["io_color"])
         return (IO_W / 2, y)
 
-    pts = [draw_blocks(d, c, state, desc) for c in arg]
+    if op == "CALL":
+        func_name = node[1]
+        raw_args = node[2]
+        children = [c for c in raw_args if c[0] != "TIME"]
+        times = [c[1] for c in raw_args if c[0] == "TIME"]
+        label_text = func_name + (f"\nT={times[0]}" if times else "")
+    else:
+        children = node[1]
+        label_text = op
+
+    pts = [draw_blocks(d, c, state, desc) for c in children]
     x, y = height(node) * COLW, sum(p[1] for p in pts) / len(pts)
-    put_box(d, x, y, GATE_W, GATE_H, op, BLOCK["gate_color"])
+    put_box(d, x, y, GATE_W, GATE_H, label_text, BLOCK["gate_color"])
 
     left = x - GATE_W / 2
     for i, p in enumerate(pts):
@@ -38,6 +51,7 @@ def draw_blocks(d, node, state, desc):
         d += elm.Arrow().at((xm, y)).to((left, y))
 
     return (x + GATE_W / 2, y)
+
 
 def block_diagram(eqs, desc):
     d = schemdraw.Drawing()

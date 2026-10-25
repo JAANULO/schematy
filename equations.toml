@@ -1,7 +1,7 @@
 [descriptions]
-I1 = "1st input"
-I2 = "2nd input"
-Q1 = "1st output"
+I1 = "lewy przycisk"
+I2 = "prawy przycisk"
+Q1 = "silnik glowny"
 
 [equations]
-Q1 = "(I1 AND I2) OR (NOT I1 AND NOT I2)"
+Q1 = "(I1 ∧ I2) ∨ (¬I1 ∧ ¬I2)"

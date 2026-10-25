@@ -1,10 +1,24 @@
 import re
 
-LEVEL = {"AND": 1, "NAND": 1, "OR": 0, "NOR": 0, "XOR": 0, "XNOR": 0}
+TIME_RE = re.compile(r"^\d+(?:\.\d+)?(?:ms|s|m|h)$", re.I)
+LEVEL = {"AND": 2, "NAND": 2, "XOR": 1, "XNOR": 1, "OR": 0, "NOR": 0}
+
 
 def tokenize(text):
-    toks = re.findall(r"[A-Za-z_]\w*|\S", text)
-    return [t.upper() if t.upper() in LEVEL or t.upper() == "NOT" else t for t in toks]
+    # Zamiana symboli matematycznych i programistycznych na standardowe operatory
+    text = text.replace("∧", " AND ").replace("∨", " OR ").replace("¬", " NOT ")
+    text = text.replace("&&", " AND ").replace("||", " OR ")
+    text = text.replace("&", " AND ").replace("|", " OR ")
+    text = text.replace("~", " NOT ").replace("!", " NOT ")
+    text = text.replace("^", " XOR ")
+    toks = re.findall(r"\d+(?:\.\d+)?(?:ms|s|m|h)\b|[A-Za-z_]\w*|[(),]", text)
+    return [
+        t.lower() if TIME_RE.fullmatch(t)
+        else t.upper() if t.upper() in LEVEL or t.upper() == "NOT"
+        else t
+        for t in toks
+    ]
+
 
 def parse(expr):
     toks, pos = tokenize(expr), [0]
@@ -27,15 +41,18 @@ def parse(expr):
             else:
                 node, cur = (op, [node, rhs]), op
 
-        if cur in ("AND", "OR"):
+        if cur in ("AND", "OR", "XOR"):
             node = (cur, [x for c in node[1] for x in (c[1] if c[0] == cur else [c])])
         return node
 
     def or_():
-        return chain(0, and_)
+        return chain(0, xor_)
+
+    def xor_():
+        return chain(1, and_)
 
     def and_():
-        return chain(1, not_)
+        return chain(2, not_)
 
     def not_():
         t = take()
@@ -48,7 +65,26 @@ def parse(expr):
                 raise ValueError("missing ')'")
             return e
 
+        if TIME_RE.fullmatch(t):
+            raise ValueError(f"time '{t}' can only be an argument of a function")
+
         if re.fullmatch(r"[A-Za-z_]\w*", t) and t not in LEVEL:
+            if peek() == "(":
+                take()
+                args = []
+                if peek() != ")":
+                    while True:
+                        if peek() and TIME_RE.fullmatch(peek()):
+                            args.append(("TIME", take()))
+                        else:
+                            args.append(or_())
+                        if peek() == ",":
+                            take()
+                            continue
+                        break
+                if take() != ")":
+                    raise ValueError(f"missing ')' in call {t}")
+                return ("CALL", t, args)
             return ("VAR", t)
 
         raise ValueError(f"unexpected token: {t}")
