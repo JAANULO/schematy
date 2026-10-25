@@ -20,3 +20,8 @@ wrap = 19
 fontsize = 10
 io_color = "#e8e8e8"
 gate_color = "white"
+
+[logo]
+enabled = true          # generowanie schematu LOGO! FBD i raportów
+plan = true             # generowanie plan_klikania.md (instrukcja Soft Comfort)
+sentences = true        # generowanie zdania_logiczne.md (opisy słowne po polsku)
